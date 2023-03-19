@@ -1,0 +1,14 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+streamlit = "*"
+st-connection = {git = "https://github.com/sfc-gh-brianhess/st_connection.git"}
+pyarrow = "~=8.0.0"
+
+[dev-packages]
+
+[requires]
+python_version = "3.8"
