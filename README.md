@@ -11,7 +11,7 @@ Then run one of the following:
 ```
 pip install streamlit
 pip install git+https://github.com/sfc-gh-brianhess/st_connection.git#egg=st_connection
-pip install pyarrow~=8.0.0
+pip install pyarrow~=10.0.1
 ```
 
 or
@@ -21,7 +21,7 @@ pipenv install
 pipenv shell
 pipenv install streamlit
 pipenv install git+https://github.com/sfc-gh-brianhess/st_connection.git#egg=st_connection
-pipenv install pyarrow~=8.0.0
+pipenv install pyarrow~=10.0.1
 ```
 
 ## How to Run:

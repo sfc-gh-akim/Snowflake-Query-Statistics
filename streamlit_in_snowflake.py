@@ -15,7 +15,7 @@ except:
     pass
    
 
-st.title("Streamlit Query Profiler")
+st.title("Streamlit Query Statistics")
 
 # Set up general laytout
 settings = st.columns(4)

@@ -6,7 +6,7 @@ name = "pypi"
 [packages]
 streamlit = "*"
 st-connection = {git = "https://github.com/sfc-gh-brianhess/st_connection.git"}
-pyarrow = "~=8.0.0"
+pyarrow = "~=10.0.1"
 
 [dev-packages]
 
