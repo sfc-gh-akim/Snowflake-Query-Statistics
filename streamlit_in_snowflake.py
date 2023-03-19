@@ -309,20 +309,16 @@ with container:
         try:
             if stats["EXPLODING_JOIN"].max() == 1:
                 with st.expander("⚠️ Exploding Join Detected"):
-                    st.caption(f"""One of the common mistakes SQL users make is joining tables without providing a join condition (resulting in a “Cartesian product”), or providing a condition where records from one table match multiple records from another table. For such queries, the Join operator produces significantly (often by orders of magnitude) more tuples than it consumes.
-    
-This can be observed by looking at the number of records produced by a Join operator, and typically is also reflected in Join operator consuming a lot of time.
-    
-https://docs.snowflake.com/en/user-guide/ui-snowsight-activity#exploding-joins""")
+                    st.caption(f"""One of the common mistakes SQL users make is joining tables without providing a join condition (resulting in a “Cartesian product”), or providing a condition where records from one table match multiple records from another table. For such queries, the Join operator produces significantly (often by orders of magnitude) more tuples than it consumes.""")
+                    st.caption(f"""This can be observed by looking at the number of records produced by a Join operator, and typically is also reflected in Join operator consuming a lot of time.""")
+                    st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity#exploding-joins""")
                 
                     problem = stats[stats["EXPLODING_JOIN"]==1]
                     for index, row in problem.iterrows():
                         parsed = json.loads(row["OPERATOR_ATTRIBUTES"])
-                        st.markdown(f"""**Join Type:** {parsed["join_type"]}
-    
-**Condition:** 
-
-`{parsed["equality_join_condition"]}`""")
+                        st.markdown(f"""**Join Type:** {parsed["join_type"]}""")
+                        st.markdown(f"""**Condition:**""")
+                        st.markdown(f"""`{parsed["equality_join_condition"]}`""")   
         except:
             pass
 
@@ -330,11 +326,9 @@ https://docs.snowflake.com/en/user-guide/ui-snowsight-activity#exploding-joins""
         try:
             if stats["UNION_WITHOUT_ALL"].max() == 1:
                 with st.expander("⚠️ UNION Without ALL Detected"):
-                    st.caption(f"""In SQL, it is possible to combine two sets of data with either UNION or UNION ALL constructs. The difference between them is that UNION ALL simply concatenates inputs, while UNION does the same, but also performs duplicate elimination.
-    
-A common mistake is to use UNION when the UNION ALL semantics are sufficient. These queries show in Query Profile as a UnionAll operator with an extra Aggregate operator on top (which performs duplicate elimination).
-        
-https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#union-without-all""")               
+                    st.caption(f"""In SQL, it is possible to combine two sets of data with either UNION or UNION ALL constructs. The difference between them is that UNION ALL simply concatenates inputs, while UNION does the same, but also performs duplicate elimination.""")
+                    st.caption(f"""A common mistake is to use UNION when the UNION ALL semantics are sufficient. These queries show in Query Profile as a UnionAll operator with an extra Aggregate operator on top (which performs duplicate elimination).""")
+                    st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#union-without-all""")              
               
         except:
             pass
@@ -343,13 +337,11 @@ https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#union-withou
         try:
             if stats["QUERIES_TOO_LARGE_MEMORY"].max() == 1:
                 with st.expander("⚠️ Queries Too Large to Fit in Memory "):
-                    st.caption(f"""For some operations (e.g. duplicate elimination for a huge data set), the amount of memory available for the servers used to execute the operation might not be sufficient to hold intermediate results. As a result, the query processing engine will start spilling the data to local disk. If the local disk space is not sufficient, the spilled data is then saved to remote disks.
-    
-This spilling can have a profound effect on query performance (especially if remote disk is used for spilling). To alleviate this, we recommend:
-* Using a larger warehouse (effectively increasing the available memory/local disk space for the operation), and/or
-* Processing data in smaller batches.
-    
-https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-large-to-fit-in-memory""")
+                    st.caption(f"""For some operations (e.g. duplicate elimination for a huge data set), the amount of memory available for the servers used to execute the operation might not be sufficient to hold intermediate results. As a result, the query processing engine will start spilling the data to local disk. If the local disk space is not sufficient, the spilled data is then saved to remote disks.""")
+                    st.caption(f"""This spilling can have a profound effect on query performance (especially if remote disk is used for spilling). To alleviate this, we recommend:""")
+                    st.caption(f"""* Using a larger warehouse (effectively increasing the available memory/local disk space for the operation), and/or""")
+                    st.caption(f"""* Processing data in smaller batches.""")
+                    st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-large-to-fit-in-memory""")
     
                     size_up = 'XSMALL'
                     if query['WAREHOUSE_SIZE'][0] == 'X-Small':
@@ -374,10 +366,8 @@ https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-
                         size_up = False
     
                     if size_up != False:                
-                        st.markdown(f"""To change your warehouse size, run the following query
-                        
-`ALTER WAREHOUSE "{query['WAREHOUSE_NAME'][0]}" SET WAREHOUSE_SIZE={size_up};`                
-                        """)
+                        st.markdown(f"""To change your warehouse size, run the following query""")
+                        st.markdown(f"""`ALTER WAREHOUSE "{query['WAREHOUSE_NAME'][0]}" SET WAREHOUSE_SIZE={size_up};`""")
     
                         st.write("Or use the following button to automatically increase your warehouse size")
                         st.button(f"Change {query['WAREHOUSE_NAME'][0]} to {size_up}", on_click=resize_wh, args=(query['WAREHOUSE_NAME'][0], size_up), type='primary')
@@ -389,13 +379,10 @@ https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-
         try:
             if stats["INEFFICIENT_PRUNING_FLAG"].max() == 1:
                 with st.expander("⚠️ Inefficient Pruning"):
-                    st.caption(f"""Snowflake collects rich statistics on data allowing it not to read unnecessary parts of a table based on the query filters. However, for this to have an effect, the data storage order needs to be correlated with the query filter attributes.
-
-The efficiency of pruning can be observed by comparing Partitions scanned and Partitions total statistics in the TableScan operators. If the former is a small fraction of the latter, pruning is efficient. If not, the pruning did not have an effect.
-
-Of course, pruning can only help for queries that actually filter out a significant amount of data. If the pruning statistics do not show data reduction, but there is a Filter operator above TableScan which filters out a number of records, this might signal that a different data organization might be beneficial for this query.
-
-https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#inefficient-pruning""")
+                    st.caption(f"""Snowflake collects rich statistics on data allowing it not to read unnecessary parts of a table based on the query filters. However, for this to have an effect, the data storage order needs to be correlated with the query filter attributes.""")
+                    st.caption(f"""The efficiency of pruning can be observed by comparing Partitions scanned and Partitions total statistics in the TableScan operators. If the former is a small fraction of the latter, pruning is efficient. If not, the pruning did not have an effect.""")
+                    st.caption(f"""Of course, pruning can only help for queries that actually filter out a significant amount of data. If the pruning statistics do not show data reduction, but there is a Filter operator above TableScan which filters out a number of records, this might signal that a different data organization might be beneficial for this query.""")
+                    st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#inefficient-pruning""")
                 
                     problem = stats[stats["TABLENAME"].notnull()]
                     problem["PARTITIONS_TOTAL"] = problem["PARTITIONS_TOTAL"].astype(int)
@@ -418,9 +405,8 @@ https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#inefficient-
                             elif row['sort'] < 10:
                                 indicator = '🟡'
                             
-                            st.markdown(f"""{indicator} **Partitions Scanned / Total:**
-                            
-{'{:,.0f}'.format(row["PARTITIONS_SCANNED"])} / {'{:,.0f}'.format(row["PARTITIONS_TOTAL"])} ({round(row["PARTITION_SCAN_RATIO"]*100,1)}%)""")
+                            st.markdown(f"""{indicator} **Partitions Scanned / Total:**""")
+                            st.markdown(f"""{'{:,.0f}'.format(row["PARTITIONS_SCANNED"])} / {'{:,.0f}'.format(row["PARTITIONS_TOTAL"])} ({round(row["PARTITION_SCAN_RATIO"]*100,1)}%)""")
 
                         st.write("")
                         st.write("")
