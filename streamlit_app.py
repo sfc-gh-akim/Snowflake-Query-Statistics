@@ -192,7 +192,7 @@ if __name__ == "__main__":
                         pass
                     
             index = index + 1
-    #endregion
+        #endregion
 
 
         with container:
@@ -203,7 +203,22 @@ if __name__ == "__main__":
                 try:
                     #region Specific query detail
                     # If Query ID has been provided, filter query history on the provided query_id
-                    query = qh[qh["QUERY_ID"] == query_id].reset_index()
+                    # query = qh[qh["QUERY_ID"] == query_id].reset_index()
+                    query = session.sql(f"""SELECT 
+                        QUERY_ID,QUERY_TEXT,DATABASE_NAME,SCHEMA_NAME,QUERY_TYPE,
+                        q.USER_NAME,WAREHOUSE_NAME,WAREHOUSE_SIZE,WAREHOUSE_TYPE,
+                        QUERY_TAG,EXECUTION_STATUS,START_TIME,END_TIME,TOTAL_ELAPSED_TIME,
+                        BYTES_SCANNED,PERCENTAGE_SCANNED_FROM_CACHE,BYTES_WRITTEN,BYTES_WRITTEN_TO_RESULT,
+                        BYTES_READ_FROM_RESULT,ROWS_PRODUCED,ROWS_INSERTED,ROWS_UPDATED,ROWS_DELETED,
+                        ROWS_UNLOADED,BYTES_DELETED,PARTITIONS_SCANNED,PARTITIONS_TOTAL,
+                        BYTES_SPILLED_TO_LOCAL_STORAGE,BYTES_SPILLED_TO_REMOTE_STORAGE,
+                        BYTES_SENT_OVER_THE_NETWORK,COMPILATION_TIME,EXECUTION_TIME,QUEUED_PROVISIONING_TIME,
+                        QUEUED_REPAIR_TIME,QUEUED_OVERLOAD_TIME,CREDITS_USED_CLOUD_SERVICES,
+                        QUERY_LOAD_PERCENT,IS_CLIENT_GENERATED_STATEMENT,CLIENT_APPLICATION_ID
+                    FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY q 
+                    INNER JOIN SNOWFLAKE.ACCOUNT_USAGE.SESSIONS s ON q.SESSION_ID = s.SESSION_ID
+                    WHERE QUERY_ID='{query_id}'
+                    ORDER BY END_TIME DESC""").to_pandas()
                     
             
                     # Show a simplified time and convert milliseconds to larger time increment
@@ -217,8 +232,8 @@ if __name__ == "__main__":
             
                     # Text of when query ran and how long
                     st.caption(f"Query started at {query['START_TIME'][0]} and finished at {query['END_TIME'][0]} with a total execution time of {'{:,.0f}'.format(query['TOTAL_ELAPSED_TIME'][0])} ms {simple_time}")
-                except:
-                    pass
+                except Exception as e:
+                    st.warning(e)
                     
                 # Build 2 columns
                 details = st.columns(2)
@@ -226,10 +241,10 @@ if __name__ == "__main__":
                     try:
                         st.text_input('DB.SCHEMA', value=f"{query['DATABASE_NAME'][0]}.{query['SCHEMA_NAME'][0]}", disabled=True)
                         st.write("Query Text")
-                        st.caption(query["QUERY_TEXT"][0])
+                        st.markdown(f"`{query['QUERY_TEXT'][0]}`")
                         st.text_input('Query Tag', value=query['QUERY_TAG'][0], disabled=True)
-                    except:
-                        pass
+                    except Exception as e:
+                        st.warning(e)
 
                 with details[1]:
                     try:
@@ -257,211 +272,242 @@ if __name__ == "__main__":
                         st.text_input('Query Type', value=query['QUERY_TYPE'][0], disabled=True)
                         st.text_input('User Name', value=query['USER_NAME'][0], disabled=True)
                         st.text_input('Client Application', value=query['CLIENT_APPLICATION_ID'][0], disabled=True)
-                    except:
-                        pass
-
+                    except Exception as e:
+                        st.warning(e)
+                
                 with st.expander("More query details"):
-                    transpose = query.transpose()
-                    transpose = transpose.drop([
-                        'index',
-                        'QUERY_ID',
-                        'QUERY_TEXT',
-                        'WAREHOUSE_NAME',
-                        'WAREHOUSE_SIZE',
-                        'WAREHOUSE_TYPE',
-                        'QUERY_TYPE',
-                        'USER_NAME',
-                        'CLIENT_APPLICATION_ID',
-                        'QUERY_TAG'
-                    ])
-                    st.dataframe(transpose, use_container_width=True)
+                    try:
+                        transpose = query.transpose()
+                        try:
+                            transpose = transpose.drop(['index'])
+                        except:
+                            pass
+                        transpose = transpose.drop([
+                            'QUERY_ID',
+                            'QUERY_TEXT',
+                            'WAREHOUSE_NAME',
+                            'WAREHOUSE_SIZE',
+                            'WAREHOUSE_TYPE',
+                            'QUERY_TYPE',
+                            'USER_NAME',
+                            'CLIENT_APPLICATION_ID',
+                            'QUERY_TAG'
+                        ])
+                        st.dataframe(transpose, use_container_width=True)
+                    except Exception as e:
+                        st.warning(e)
                 
                 
-                stats = session.sql(f"""with query_stats as(
-                    select 
-                        QUERY_ID,
-                        STEP_ID,
-                        OPERATOR_ID,
-                        PARENT_OPERATOR_ID,
-                        OPERATOR_TYPE,
-                        OPERATOR_STATISTICS,
-                        EXECUTION_TIME_BREAKDOWN,
-                        OPERATOR_ATTRIBUTES,
-                        EXECUTION_TIME_BREAKDOWN:overall_percentage::float as OPERATOR_EXECUTION_TIME,
-                        OPERATOR_STATISTICS:output_rows output_rows,
-                        OPERATOR_STATISTICS:input_rows input_rows,
-                        CASE WHEN operator_statistics:input_rows>0 THEN operator_statistics:output_rows / operator_statistics:input_rows ELSE 0 END as row_multiple,
+                try:
+                    stats = session.sql(f"""with query_stats as(
+                        select 
+                            QUERY_ID,
+                            STEP_ID,
+                            OPERATOR_ID,
+                            PARENT_OPERATOR_ID,
+                            OPERATOR_TYPE,
+                            OPERATOR_STATISTICS,
+                            EXECUTION_TIME_BREAKDOWN,
+                            OPERATOR_ATTRIBUTES,
+                            EXECUTION_TIME_BREAKDOWN:overall_percentage::float as OPERATOR_EXECUTION_TIME,
+                            OPERATOR_STATISTICS:output_rows output_rows,
+                            OPERATOR_STATISTICS:input_rows input_rows,
+                            CASE WHEN operator_statistics:input_rows>0 THEN operator_statistics:output_rows / operator_statistics:input_rows ELSE 0 END as row_multiple,
 
-                        // look for queries too large to fit into memory as described at https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-large-to-fit-in-memory
-                        OPERATOR_STATISTICS:spilling:bytes_spilled_local_storage bytes_spilled_local,
-                        OPERATOR_STATISTICS:spilling:bytes_spilled_remote_storage bytes_spilled_remote,
+                            // look for queries too large to fit into memory as described at https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-large-to-fit-in-memory
+                            OPERATOR_STATISTICS:spilling:bytes_spilled_local_storage bytes_spilled_local,
+                            OPERATOR_STATISTICS:spilling:bytes_spilled_remote_storage bytes_spilled_remote,
                         
-                        operator_statistics:io:percentage_scanned_from_cache::float percentage_scanned_from_cache,
+                            operator_statistics:io:percentage_scanned_from_cache::float percentage_scanned_from_cache,
 
-                        operator_attributes:table_name::string tablename,
-                        OPERATOR_STATISTICS:pruning:partitions_scanned partitions_scanned,
-                        OPERATOR_STATISTICS:pruning:partitions_total partitions_total,
-                        OPERATOR_STATISTICS:pruning:partitions_scanned/OPERATOR_STATISTICS:pruning:partitions_total::float as partition_scan_ratio,
+                            operator_attributes:table_name::string tablename,
+                            OPERATOR_STATISTICS:pruning:partitions_scanned partitions_scanned,
+                            OPERATOR_STATISTICS:pruning:partitions_total partitions_total,
+                            OPERATOR_STATISTICS:pruning:partitions_scanned/OPERATOR_STATISTICS:pruning:partitions_total::float as partition_scan_ratio,
 
-                        
-                        //*****COMMON QUERY PROBLEMS IDENTIFIED BY QUERY PROFILE**** https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#common-query-problems-identified-by-query-profile
-
-                            // 1) EXPLODING JOIN (https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#exploding-joins)
-                            CASE WHEN row_multiple > 1 THEN 1 ELSE 0 END AS EXPLODING_JOIN,
-
-                            // 2) "UNION WITHOUT ALL" (https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#union-without-all)
-                            CASE WHEN OPERATOR_TYPE = 'UnionAll' and lag(OPERATOR_TYPE) over (ORDER BY OPERATOR_ID) = 'Aggregate' THEN 1 ELSE 0 END AS UNION_WITHOUT_ALL,
-
-                            // 3) Queries Too Large to Fit in Memory (https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-large-to-fit-in-memory)
-                            CASE WHEN bytes_spilled_local>0 OR bytes_spilled_remote>0 THEN 1 ELSE 0 END AS QUERIES_TOO_LARGE_MEMORY,
                             
-                            // 4) Inefficient Pruning (https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#inefficient-pruning)
-                                // for example if partition_scan_ratio > 80% and any given table has a total partition count > 20,000 
-                                // (these are arbitrary numbers that may vary by customer or scenario - find what works for you)
-                            CASE WHEN partition_scan_ratio >= .8 AND partitions_total >= 20000 THEN 1 ELSE 0 END AS INEFFICIENT_PRUNING_FLAG
+                            //*****COMMON QUERY PROBLEMS IDENTIFIED BY QUERY PROFILE**** https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#common-query-problems-identified-by-query-profile
+
+                                // 1) EXPLODING JOIN (https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#exploding-joins)
+                                CASE WHEN row_multiple > 1 THEN 1 ELSE 0 END AS EXPLODING_JOIN,
+
+                                // 2) "UNION WITHOUT ALL" (https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#union-without-all)
+                                CASE WHEN OPERATOR_TYPE = 'UnionAll' and lag(OPERATOR_TYPE) over (ORDER BY OPERATOR_ID) = 'Aggregate' THEN 1 ELSE 0 END AS UNION_WITHOUT_ALL,
+
+                                // 3) Queries Too Large to Fit in Memory (https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-large-to-fit-in-memory)
+                                CASE WHEN bytes_spilled_local>0 OR bytes_spilled_remote>0 THEN 1 ELSE 0 END AS QUERIES_TOO_LARGE_MEMORY,
+                                
+                                // 4) Inefficient Pruning (https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#inefficient-pruning)
+                                    // for example if partition_scan_ratio > 80% and any given table has a total partition count > 20,000 
+                                    // (these are arbitrary numbers that may vary by customer or scenario - find what works for you)
+                                CASE WHEN partition_scan_ratio >= .8 AND partitions_total >= 20000 THEN 1 ELSE 0 END AS INEFFICIENT_PRUNING_FLAG
+                            
+                            from table(get_query_operator_stats('{query_id}')) -- 7h 30m 9s X-Small ALL 4 CONDITIONS MET
+
+                        ORDER BY STEP_ID,OPERATOR_ID
+                        )
+                        SELECT 
+                            QUERY_ID,
+                            STEP_ID,
+                            OPERATOR_ID,
+                            PARENT_OPERATOR_ID,
+                            OPERATOR_TYPE,
+                            OPERATOR_STATISTICS,
+                            EXECUTION_TIME_BREAKDOWN,
+                            OPERATOR_ATTRIBUTES,
+                            OPERATOR_EXECUTION_TIME,
+                            OUTPUT_ROWS,
+                            INPUT_ROWS,
+                            ROW_MULTIPLE,
+                            BYTES_SPILLED_LOCAL,
+                            BYTES_SPILLED_REMOTE,
+                            PERCENTAGE_SCANNED_FROM_CACHE,
+                            TABLENAME,
+                            PARTITIONS_SCANNED,
+                            PARTITIONS_TOTAL,
+                            PARTITION_SCAN_RATIO,
+                            EXPLODING_JOIN,
+                            UNION_WITHOUT_ALL,
+                            QUERIES_TOO_LARGE_MEMORY,
+                            INEFFICIENT_PRUNING_FLAG,
+                            CLUSTERING_KEY
+                        FROM query_stats
+                        LEFT JOIN SNOWFLAKE_SAMPLE_DATA.INFORMATION_SCHEMA.TABLES t
+                            on query_stats.TABLENAME = t.TABLE_CATALOG || '.' || t.TABLE_SCHEMA || '.' || t.TABLE_NAME
+                        ORDER BY STEP_ID,OPERATOR_ID""").to_pandas()
+                    try:
+                        if stats["EXPLODING_JOIN"].max() == 1:
+                            with st.expander("⚠️ Exploding Join Detected"):
+                                st.caption(f"""One of the common mistakes SQL users make is joining tables without providing a join condition (resulting in a “Cartesian product”), or providing a condition where records from one table match multiple records from another table. For such queries, the Join operator produces significantly (often by orders of magnitude) more tuples than it consumes.""")
+                                st.caption(f"""This can be observed by looking at the number of records produced by a Join operator, and typically is also reflected in Join operator consuming a lot of time.""")
+                                st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity#exploding-joins""")
                         
-                        from table(get_query_operator_stats('{query_id}')) -- 7h 30m 9s X-Small ALL 4 CONDITIONS MET
-
-                    ORDER BY STEP_ID,OPERATOR_ID
-                    )
-                    SELECT 
-                        QUERY_ID,
-                        STEP_ID,
-                        OPERATOR_ID,
-                        PARENT_OPERATOR_ID,
-                        OPERATOR_TYPE,
-                        OPERATOR_STATISTICS,
-                        EXECUTION_TIME_BREAKDOWN,
-                        OPERATOR_ATTRIBUTES,
-                        OPERATOR_EXECUTION_TIME,
-                        OUTPUT_ROWS,
-                        INPUT_ROWS,
-                        ROW_MULTIPLE,
-                        BYTES_SPILLED_LOCAL,
-                        BYTES_SPILLED_REMOTE,
-                        PERCENTAGE_SCANNED_FROM_CACHE,
-                        TABLENAME,
-                        PARTITIONS_SCANNED,
-                        PARTITIONS_TOTAL,
-                        PARTITION_SCAN_RATIO,
-                        EXPLODING_JOIN,
-                        UNION_WITHOUT_ALL,
-                        QUERIES_TOO_LARGE_MEMORY,
-                        INEFFICIENT_PRUNING_FLAG,
-                        CLUSTERING_KEY
-                    FROM query_stats
-                    LEFT JOIN SNOWFLAKE_SAMPLE_DATA.INFORMATION_SCHEMA.TABLES t
-                        on query_stats.TABLENAME = t.TABLE_CATALOG || '.' || t.TABLE_SCHEMA || '.' || t.TABLE_NAME
-                    ORDER BY STEP_ID,OPERATOR_ID""").to_pandas()
-                    
-                # st.write(stats)
-
-                try:
-                    if stats["EXPLODING_JOIN"].max() == 1:
-                        with st.expander("⚠️ Exploding Join Detected"):
-                            st.caption(f"""One of the common mistakes SQL users make is joining tables without providing a join condition (resulting in a “Cartesian product”), or providing a condition where records from one table match multiple records from another table. For such queries, the Join operator produces significantly (often by orders of magnitude) more tuples than it consumes.""")
-                            st.caption(f"""This can be observed by looking at the number of records produced by a Join operator, and typically is also reflected in Join operator consuming a lot of time.""")
-                            st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity#exploding-joins""")
-                    
-                            problem = stats[stats["EXPLODING_JOIN"]==1]
-                            for index, row in problem.iterrows():
-                                parsed = json.loads(row["OPERATOR_ATTRIBUTES"])
-                                st.markdown(f"""**Join Type:** {parsed["join_type"]}""")
-                                st.markdown(f"""**Condition:**""")
-                                st.markdown(f"""`{parsed["equality_join_condition"]}`""")      
-                except:
-                    pass
-
-            
-                try:
-                    if stats["UNION_WITHOUT_ALL"].max() == 1:
-                        with st.expander("⚠️ UNION Without ALL Detected"):
-                            st.caption(f"""In SQL, it is possible to combine two sets of data with either UNION or UNION ALL constructs. The difference between them is that UNION ALL simply concatenates inputs, while UNION does the same, but also performs duplicate elimination.""")
-                            st.caption(f"""A common mistake is to use UNION when the UNION ALL semantics are sufficient. These queries show in Query Profile as a UnionAll operator with an extra Aggregate operator on top (which performs duplicate elimination).""")
-                            st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#union-without-all""")               
-                
-                except:
-                    pass
-
-
-                try:
-                    if stats["QUERIES_TOO_LARGE_MEMORY"].max() == 1:
-                        with st.expander("⚠️ Queries Too Large to Fit in Memory "):
-                            st.caption(f"""For some operations (e.g. duplicate elimination for a huge data set), the amount of memory available for the servers used to execute the operation might not be sufficient to hold intermediate results. As a result, the query processing engine will start spilling the data to local disk. If the local disk space is not sufficient, the spilled data is then saved to remote disks.""")
-                            st.caption(f"""This spilling can have a profound effect on query performance (especially if remote disk is used for spilling). To alleviate this, we recommend:""")
-                            st.caption(f"""* Using a larger warehouse (effectively increasing the available memory/local disk space for the operation), and/or""")
-                            st.caption(f"""* Processing data in smaller batches.""")
-                            st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-large-to-fit-in-memory""")
-        
-                            size_up = 'XSMALL'
-                            if query['WAREHOUSE_SIZE'][0] == 'X-Small':
-                                size_up = 'SMALL'
-                            elif query['WAREHOUSE_SIZE'][0] == 'Small':
-                                size_up = 'MEDIUM'
-                            elif query['WAREHOUSE_SIZE'][0] == 'Medium':
-                                size_up = 'LARGE'
-                            elif query['WAREHOUSE_SIZE'][0] == 'Large':
-                                size_up = 'XLARGE'
-                            elif query['WAREHOUSE_SIZE'][0] == 'X-Large':
-                                size_up = 'XXLARGE'
-                            elif query['WAREHOUSE_SIZE'][0] == '2X-Large':
-                                size_up = 'XXXLARGE'
-                            elif query['WAREHOUSE_SIZE'][0] == '3X-Large':
-                                size_up = 'X4LARGE'
-                            elif query['WAREHOUSE_SIZE'][0] == '4X-Large':
-                                size_up = 'X5LARGE'
-                            elif query['WAREHOUSE_SIZE'][0] == '5X-Large':
-                                size_up = 'X6LARGE'
-                            elif query['WAREHOUSE_SIZE'][0] == '5X-Large':
-                                size_up = False
-            
-                            if size_up != False:                
-                                st.markdown(f"""To change your warehouse size, run the following query""")
-                                st.markdown(f"""`ALTER WAREHOUSE "{query['WAREHOUSE_NAME'][0]}" SET WAREHOUSE_SIZE={size_up};`""")
-        
-                                st.write("Or use the following button to automatically increase your warehouse size")
-                                st.button(f"Change {query['WAREHOUSE_NAME'][0]} to {size_up}", on_click=resize_wh, args=(query['WAREHOUSE_NAME'][0], size_up), type='primary')
-
-                except:
-                    pass
+                                problem = stats[stats["EXPLODING_JOIN"]==1]
+                                for index, row in problem.iterrows():
+                                    parsed = json.loads(row["OPERATOR_ATTRIBUTES"])
+                                    st.markdown(f"""**Join Type:** {parsed["join_type"]}""")
+                                    st.markdown(f"""**Condition:**""")
+                                    st.markdown(f"""`{parsed["equality_join_condition"]}`""")    
+                        else:
+                            with st.expander("✅ No Exploding Joins Detected"):
+                                st.caption(f"""One of the common mistakes SQL users make is joining tables without providing a join condition (resulting in a “Cartesian product”), or providing a condition where records from one table match multiple records from another table. For such queries, the Join operator produces significantly (often by orders of magnitude) more tuples than it consumes.""")
+                                st.caption(f"""This can be observed by looking at the number of records produced by a Join operator, and typically is also reflected in Join operator consuming a lot of time.""")
+                                st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity#exploding-joins""")
+                    except Exception as e:
+                        st.warning(e)
 
                 
-                try:
-                    if stats["INEFFICIENT_PRUNING_FLAG"].max() == 1:
-                        with st.expander("⚠️ Inefficient Pruning"):
+                    try:
+                        if stats["UNION_WITHOUT_ALL"].max() == 1:
+                            with st.expander("⚠️ UNION Without ALL Detected"):
+                                st.caption(f"""In SQL, it is possible to combine two sets of data with either UNION or UNION ALL constructs. The difference between them is that UNION ALL simply concatenates inputs, while UNION does the same, but also performs duplicate elimination.""")
+                                st.caption(f"""A common mistake is to use UNION when the UNION ALL semantics are sufficient. These queries show in Query Profile as a UnionAll operator with an extra Aggregate operator on top (which performs duplicate elimination).""")
+                                st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#union-without-all""")          
+                        else:
+                            with st.expander("✅ No UNION Without ALL Detected"):
+                                st.caption(f"""In SQL, it is possible to combine two sets of data with either UNION or UNION ALL constructs. The difference between them is that UNION ALL simply concatenates inputs, while UNION does the same, but also performs duplicate elimination.""")
+                                st.caption(f"""A common mistake is to use UNION when the UNION ALL semantics are sufficient. These queries show in Query Profile as a UnionAll operator with an extra Aggregate operator on top (which performs duplicate elimination).""")
+                                st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#union-without-all""") 
+                    
+                    except Exception as e:
+                        st.warning(e)
+
+
+                    try:
+                        if stats["QUERIES_TOO_LARGE_MEMORY"].max() == 1:
+                            with st.expander("⚠️ Queries Too Large to Fit in Memory"):
+                                st.caption(f"""For some operations (e.g. duplicate elimination for a huge data set), the amount of memory available for the servers used to execute the operation might not be sufficient to hold intermediate results. As a result, the query processing engine will start spilling the data to local disk. If the local disk space is not sufficient, the spilled data is then saved to remote disks.""")
+                                st.caption(f"""This spilling can have a profound effect on query performance (especially if remote disk is used for spilling). To alleviate this, we recommend:""")
+                                st.caption(f"""* Using a larger warehouse (effectively increasing the available memory/local disk space for the operation), and/or""")
+                                st.caption(f"""* Processing data in smaller batches.""")
+                                st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-large-to-fit-in-memory""")
+            
+                                size_up = 'XSMALL'
+                                if query['WAREHOUSE_SIZE'][0] == 'X-Small':
+                                    size_up = 'SMALL'
+                                elif query['WAREHOUSE_SIZE'][0] == 'Small':
+                                    size_up = 'MEDIUM'
+                                elif query['WAREHOUSE_SIZE'][0] == 'Medium':
+                                    size_up = 'LARGE'
+                                elif query['WAREHOUSE_SIZE'][0] == 'Large':
+                                    size_up = 'XLARGE'
+                                elif query['WAREHOUSE_SIZE'][0] == 'X-Large':
+                                    size_up = 'XXLARGE'
+                                elif query['WAREHOUSE_SIZE'][0] == '2X-Large':
+                                    size_up = 'XXXLARGE'
+                                elif query['WAREHOUSE_SIZE'][0] == '3X-Large':
+                                    size_up = 'X4LARGE'
+                                elif query['WAREHOUSE_SIZE'][0] == '4X-Large':
+                                    size_up = 'X5LARGE'
+                                elif query['WAREHOUSE_SIZE'][0] == '5X-Large':
+                                    size_up = 'X6LARGE'
+                                elif query['WAREHOUSE_SIZE'][0] == '5X-Large':
+                                    size_up = False
+                
+                                if size_up != False:                
+                                    st.markdown(f"""To change your warehouse size, run the following query""")
+                                    st.markdown(f"""`ALTER WAREHOUSE "{query['WAREHOUSE_NAME'][0]}" SET WAREHOUSE_SIZE={size_up};`""")
+            
+                                    st.write("Or use the following button to automatically increase your warehouse size")
+                                    st.button(f"Change {query['WAREHOUSE_NAME'][0]} to {size_up}", on_click=resize_wh, args=(query['WAREHOUSE_NAME'][0], size_up), type='primary')
+                        else:
+                            with st.expander("✅ Queries Fit in Memory"):
+                                st.caption(f"""For some operations (e.g. duplicate elimination for a huge data set), the amount of memory available for the servers used to execute the operation might not be sufficient to hold intermediate results. As a result, the query processing engine will start spilling the data to local disk. If the local disk space is not sufficient, the spilled data is then saved to remote disks.""")
+                                st.caption(f"""This spilling can have a profound effect on query performance (especially if remote disk is used for spilling). To alleviate this, we recommend:""")
+                                st.caption(f"""* Using a larger warehouse (effectively increasing the available memory/local disk space for the operation), and/or""")
+                                st.caption(f"""* Processing data in smaller batches.""")
+                                st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-large-to-fit-in-memory""")
+                    except Exception as e:
+                        st.warning(e)
+
+                    
+                    try:
+                        if stats["INEFFICIENT_PRUNING_FLAG"].max() == 1:
+                            _heading = "⚠️ Inefficient Pruning"
+                        else:
+                            _heading = "✅ Efficient Pruning"
+                        with st.expander(_heading):
                             st.caption(f"""Snowflake collects rich statistics on data allowing it not to read unnecessary parts of a table based on the query filters. However, for this to have an effect, the data storage order needs to be correlated with the query filter attributes.""")
                             st.caption(f"""The efficiency of pruning can be observed by comparing Partitions scanned and Partitions total statistics in the TableScan operators. If the former is a small fraction of the latter, pruning is efficient. If not, the pruning did not have an effect.""")
                             st.caption(f"""Of course, pruning can only help for queries that actually filter out a significant amount of data. If the pruning statistics do not show data reduction, but there is a Filter operator above TableScan which filters out a number of records, this might signal that a different data organization might be beneficial for this query.""")
                             st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#inefficient-pruning""")
                     
-                            problem = stats[stats["TABLENAME"].notnull()]
-                            problem["PARTITIONS_TOTAL"] = problem["PARTITIONS_TOTAL"].astype(int)
-                            problem["PARTITIONS_SCANNED"] = problem["PARTITIONS_SCANNED"].astype(int)
-                            problem["sort"] = 5
-                            problem["sort"] = np.where(problem["PARTITIONS_TOTAL"].le(1000), 1, problem["sort"])
-                            problem["sort"] = np.where(problem["PARTITIONS_SCANNED"].le(problem["PARTITIONS_TOTAL"]*.5), 1, problem["sort"])
-                            problem["sort"] = np.where(problem["INEFFICIENT_PRUNING_FLAG"].eq(1), 10, problem["sort"])
-                            
-                            for index, row in problem.sort_values(by=['sort', 'PARTITIONS_TOTAL'], ascending=False).iterrows():
-                                cols = st.columns(2)
-                                parsed = json.loads(row["OPERATOR_ATTRIBUTES"])
-                                with cols[0]:
-                                    st.markdown(f"""**Table:** {parsed["table_name"]}""")
-                                    st.markdown(f"""**Columns:** `{parsed["columns"]}`""")
-                                with cols[1]:
-                                    indicator = '🔴'
-                                    if row['sort'] < 5:
-                                        indicator = '🟢'
-                                    elif row['sort'] < 10:
-                                        indicator = '🟡'
-                                    
-                                    st.markdown(f"""{indicator} **Partitions Scanned / Total:**""")
-                                    st.markdown(f"""{'{:,.0f}'.format(row["PARTITIONS_SCANNED"])} / {'{:,.0f}'.format(row["PARTITIONS_TOTAL"])} ({round(row["PARTITION_SCAN_RATIO"]*100,1)}%)""")
+                            try:
+                                problem = stats[stats["TABLENAME"].notnull()]
+                                problem["PARTITIONS_TOTAL"] = problem["PARTITIONS_TOTAL"].astype(int)
+                                problem["PARTITIONS_SCANNED"] = problem["PARTITIONS_SCANNED"].astype(int)
+                                problem["sort"] = 5
+                                problem["sort"] = np.where(problem["PARTITIONS_TOTAL"].le(1000), 1, problem["sort"])
+                                problem["sort"] = np.where(problem["PARTITIONS_SCANNED"].le(problem["PARTITIONS_TOTAL"]*.5), 1, problem["sort"])
+                                problem["sort"] = np.where(problem["INEFFICIENT_PRUNING_FLAG"].eq(1), 10, problem["sort"])
+                                
+                                for index, row in problem.sort_values(by=['sort', 'PARTITIONS_TOTAL'], ascending=False).iterrows():
+                                    cols = st.columns(2)
+                                    parsed = json.loads(row["OPERATOR_ATTRIBUTES"])
+                                    with cols[0]:
+                                        st.markdown(f"""**Table:** {parsed["table_name"]}""")
+                                        st.markdown(f"""**Columns:** `{parsed["columns"]}`""")
+                                    with cols[1]:
+                                        indicator = '🔴'
+                                        if row['sort'] < 5:
+                                            indicator = '🟢'
+                                        elif row['sort'] < 10:
+                                            indicator = '🟡'
+                                        
+                                        st.markdown(f"""{indicator} **Partitions Scanned / Total:**""")
+                                        st.markdown(f"""{'{:,.0f}'.format(row["PARTITIONS_SCANNED"])} / {'{:,.0f}'.format(row["PARTITIONS_TOTAL"])} ({round(row["PARTITION_SCAN_RATIO"]*100,1)}%)""")
 
-                                st.write("")
-                                st.write("")
-                except:
-                    pass
+                                    st.write("")
+                                    st.write("")
+                            except Exception as e:
+                                st.warning(e)
+                    except Exception as e:
+                        st.warning(e)
+                except Exception as e:
+                    st.warning(e)
+                    
+                # st.write(stats)
+
             #endregion
     except Exception as e:
         # st.warning(e)
