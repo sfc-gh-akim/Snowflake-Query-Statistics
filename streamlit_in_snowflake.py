@@ -5,6 +5,7 @@ import snowflake.snowpark as sp
 import pandas as pd
 import json
 import numpy as np
+import re
 
 try:
     # Set the page layout to wide
@@ -165,6 +166,11 @@ if __name__ == "__main__":
                 # If no Query ID has been provided, show table of most recent 50 queries
                 st.write(filtered_qh)
             else:
+                pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                if not re.match(pattern, query_id):
+                    st.error("Please enter a valid query id")
+                    st.stop()
+                
                 try:
                     st.caption("")
                     #region Specific query detail
@@ -387,8 +393,16 @@ if __name__ == "__main__":
                         try:
                             if stats["QUERIES_TOO_LARGE_MEMORY"].max() == 1:
                                 with st.expander("⚠️ Queries Too Large to Fit in Memory"):
-                                    st.caption(f"""The (compute resources)[https://docs.snowflake.com/en/user-guide/warehouses-considerations] used in this query were insufficient to hold intermediate results, and resulted in (local/local and remote) spilling, which negatively affected query performance.  Consider increasing the (virtual warehouse size)[https://docs.snowflake.com/en/user-guide/warehouses-overview#impact-on-query-processing], or processing the data in smaller batches.""")
+                                    st.caption(f"""The [compute resources](https://docs.snowflake.com/en/user-guide/warehouses-considerations) used in this query were insufficient to hold intermediate results, and resulted in (local/local and remote) spilling, which negatively affected query performance.  Consider increasing the [virtual warehouse size](https://docs.snowflake.com/en/user-guide/warehouses-overview#impact-on-query-processing), or processing the data in smaller batches.""")
                                     st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-large-to-fit-in-memory""")
+
+                                    for index, row in stats.sort_values(by=['OPERATOR_ID']).iterrows():
+                                        if ((row["BYTES_SPILLED_LOCAL"] != None) & (row["BYTES_SPILLED_REMOTE"] != None)):
+                                            st.caption(f"""* Step {row["OPERATOR_ID"]}: {"{:,.0f}".format(int(row["BYTES_SPILLED_LOCAL"]))} bytes spilled onto local storage and {"{:,.0f}".format(int(row["BYTES_SPILLED_LOCAL"]))} bytes spilled onto remote storage""")
+                                        elif ((row["BYTES_SPILLED_LOCAL"] != None) & (row["BYTES_SPILLED_REMOTE"] == None)):
+                                            st.caption(f"""* Step {row["OPERATOR_ID"]}: {"{:,.0f}".format(int(row["BYTES_SPILLED_LOCAL"]))} bytes spilled onto local storage """)
+                                        elif ((row["BYTES_SPILLED_LOCAL"] == None) & (row["BYTES_SPILLED_REMOTE"] != None)):
+                                            st.caption(f"""* Step {row["OPERATOR_ID"]}: {"{:,.0f}".format(int(row["BYTES_SPILLED_REMOTE"]))} bytes spilled onto remote storage """)
 
                                     wh_sizes = ['X-Small','Small','Medium','Large','X-Large','2X-Large','3X-Large','4X-Large','5X-Large','6X-Large']
                                     index = 0
@@ -415,7 +429,6 @@ if __name__ == "__main__":
                                         st.button(f"Change {query['WAREHOUSE_NAME'][0]} to {new_size[size_up]}", on_click=resize_wh, args=(query['WAREHOUSE_NAME'][0], new_size[size_up]), type='primary')
                                     else:
                                         st.write("Your current warehouse size is already greater than the size when this query was executed. Try running the query again to see if the warehouse is appropriately sized.")
-
                                     
                             else:
                                 with st.expander("✅ Queries Fit in Memory"):
@@ -454,8 +467,7 @@ if __name__ == "__main__":
                                         elif row['sort'] < 10:
                                             indicator = '🟡'
                                         
-                                        st.markdown(f"""{indicator} **Partitions Scanned / Total:**""")
-                                        st.markdown(f"""{'{:,.0f}'.format(row["PARTITIONS_SCANNED"])} / {'{:,.0f}'.format(row["PARTITIONS_TOTAL"])} ({round(row["PARTITION_SCAN_RATIO"]*100,1)}%)""")
+                                        st.markdown(f"""{indicator} **Partitions Scanned / Total:** {'{:,.0f}'.format(row["PARTITIONS_SCANNED"])} / {'{:,.0f}'.format(row["PARTITIONS_TOTAL"])} ({round(row["PARTITION_SCAN_RATIO"]*100,1)}%)""")
                                         st.markdown(f"""**Table:** {parsed["table_name"]}""")
                                         st.markdown(f"""**Columns:** `{parsed["columns"]}`""")
 
