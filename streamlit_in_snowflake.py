@@ -50,49 +50,52 @@ if __name__ == "__main__":
         def resize_wh(warehouse_name, warehouse_size):
             session.sql(f"""ALTER WAREHOUSE "{warehouse_name}" SET WAREHOUSE_SIZE={warehouse_size}""").collect()
 
-        # Get query history over last 14 days
-        qh = session.sql("""SELECT 
-                QUERY_ID,QUERY_TEXT,DATABASE_NAME,SCHEMA_NAME,QUERY_TYPE,
-                q.USER_NAME,WAREHOUSE_NAME,WAREHOUSE_SIZE,WAREHOUSE_TYPE,
-                QUERY_TAG,EXECUTION_STATUS,START_TIME,END_TIME,TOTAL_ELAPSED_TIME,
-                BYTES_SCANNED,PERCENTAGE_SCANNED_FROM_CACHE,BYTES_WRITTEN,BYTES_WRITTEN_TO_RESULT,
-                BYTES_READ_FROM_RESULT,ROWS_PRODUCED,ROWS_INSERTED,ROWS_UPDATED,ROWS_DELETED,
-                ROWS_UNLOADED,BYTES_DELETED,PARTITIONS_SCANNED,PARTITIONS_TOTAL,
-                BYTES_SPILLED_TO_LOCAL_STORAGE,BYTES_SPILLED_TO_REMOTE_STORAGE,
-                BYTES_SENT_OVER_THE_NETWORK,COMPILATION_TIME,EXECUTION_TIME,QUEUED_PROVISIONING_TIME,
-                QUEUED_REPAIR_TIME,QUEUED_OVERLOAD_TIME,CREDITS_USED_CLOUD_SERVICES,
-                QUERY_LOAD_PERCENT,IS_CLIENT_GENERATED_STATEMENT,CLIENT_APPLICATION_ID,
-                PARSE_JSON(CLIENT_ENVIRONMENT):APPLICATION::string as APPLICATION_NAME
-            FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY q 
-            INNER JOIN SNOWFLAKE.ACCOUNT_USAGE.SESSIONS s ON q.SESSION_ID = s.SESSION_ID
-            WHERE EXECUTION_STATUS = 'SUCCESS' AND END_TIME >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '14 DAY' 
-            AND WAREHOUSE_NAME IS NOT NULL AND WAREHOUSE_SIZE IS NOT NULL
-            ORDER BY END_TIME DESC""").to_pandas()
+        try:
+            # Get query history over last 14 days
+            qh = session.sql("""SELECT 
+                    QUERY_ID,QUERY_TEXT,DATABASE_NAME,SCHEMA_NAME,QUERY_TYPE,
+                    q.USER_NAME,WAREHOUSE_NAME,WAREHOUSE_SIZE,WAREHOUSE_TYPE,
+                    QUERY_TAG,EXECUTION_STATUS,START_TIME,END_TIME,TOTAL_ELAPSED_TIME,
+                    BYTES_SCANNED,PERCENTAGE_SCANNED_FROM_CACHE,BYTES_WRITTEN,BYTES_WRITTEN_TO_RESULT,
+                    BYTES_READ_FROM_RESULT,ROWS_PRODUCED,ROWS_INSERTED,ROWS_UPDATED,ROWS_DELETED,
+                    ROWS_UNLOADED,BYTES_DELETED,PARTITIONS_SCANNED,PARTITIONS_TOTAL,
+                    BYTES_SPILLED_TO_LOCAL_STORAGE,BYTES_SPILLED_TO_REMOTE_STORAGE,
+                    BYTES_SENT_OVER_THE_NETWORK,COMPILATION_TIME,EXECUTION_TIME,QUEUED_PROVISIONING_TIME,
+                    QUEUED_REPAIR_TIME,QUEUED_OVERLOAD_TIME,CREDITS_USED_CLOUD_SERVICES,
+                    QUERY_LOAD_PERCENT,IS_CLIENT_GENERATED_STATEMENT,CLIENT_APPLICATION_ID,
+                    PARSE_JSON(CLIENT_ENVIRONMENT):APPLICATION::string as APPLICATION_NAME
+                FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY q 
+                INNER JOIN SNOWFLAKE.ACCOUNT_USAGE.SESSIONS s ON q.SESSION_ID = s.SESSION_ID
+                WHERE EXECUTION_STATUS = 'SUCCESS' AND END_TIME >= DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '14 DAY' 
+                AND WAREHOUSE_NAME IS NOT NULL AND WAREHOUSE_SIZE IS NOT NULL
+                ORDER BY END_TIME DESC""").to_pandas()
 
-        qh["TOTAL_ELAPSED_TIME"] = qh["TOTAL_ELAPSED_TIME"].astype(int)
-        qh["COMPILATION_TIME"] = qh["COMPILATION_TIME"].astype(int)
-        qh["EXECUTION_TIME"] = qh["EXECUTION_TIME"].astype(int)
-        qh["QUEUED_PROVISIONING_TIME"] = qh["QUEUED_PROVISIONING_TIME"].astype(int)
-        qh["QUEUED_REPAIR_TIME"] = qh["QUEUED_REPAIR_TIME"].astype(int)
-        qh["QUEUED_OVERLOAD_TIME"] = qh["QUEUED_OVERLOAD_TIME"].astype(int)
-        qh["QUERY_LOAD_PERCENT"] = qh["QUERY_LOAD_PERCENT"].astype(int)
-        qh["START_TIME"] = pd.to_datetime(qh["START_TIME"])
-        qh["END_TIME"] = pd.to_datetime(qh["END_TIME"])
-        qh["BYTES_WRITTEN"] = qh["BYTES_WRITTEN"].astype(int)
-        qh["BYTES_WRITTEN_TO_RESULT"] = qh["BYTES_WRITTEN_TO_RESULT"].astype(int)
-        qh["BYTES_READ_FROM_RESULT"] = qh["BYTES_READ_FROM_RESULT"].astype(int)
-        qh["BYTES_READ_FROM_RESULT"] = qh["BYTES_READ_FROM_RESULT"].astype(int)
-        qh["ROWS_INSERTED"] = qh["ROWS_INSERTED"].astype(int)
-        qh["ROWS_UPDATED"] = qh["ROWS_UPDATED"].astype(int)
-        qh["ROWS_DELETED"] = qh["ROWS_DELETED"].astype(int)
-        qh["ROWS_UNLOADED"] = qh["ROWS_UNLOADED"].astype(int)
-        qh["BYTES_DELETED"] = qh["BYTES_DELETED"].astype(int)
-        qh["PARTITIONS_SCANNED"] = qh["PARTITIONS_SCANNED"].astype(int)
-        qh["PARTITIONS_TOTAL"] = qh["PARTITIONS_TOTAL"].astype(int)
-        qh["BYTES_SPILLED_TO_LOCAL_STORAGE"] = qh["BYTES_SPILLED_TO_LOCAL_STORAGE"].astype(int)
+            qh["TOTAL_ELAPSED_TIME"] = qh["TOTAL_ELAPSED_TIME"].astype(int)
+            qh["COMPILATION_TIME"] = qh["COMPILATION_TIME"].astype(int)
+            qh["EXECUTION_TIME"] = qh["EXECUTION_TIME"].astype(int)
+            qh["QUEUED_PROVISIONING_TIME"] = qh["QUEUED_PROVISIONING_TIME"].astype(int)
+            qh["QUEUED_REPAIR_TIME"] = qh["QUEUED_REPAIR_TIME"].astype(int)
+            qh["QUEUED_OVERLOAD_TIME"] = qh["QUEUED_OVERLOAD_TIME"].astype(int)
+            qh["QUERY_LOAD_PERCENT"] = qh["QUERY_LOAD_PERCENT"].astype(int)
+            qh["START_TIME"] = pd.to_datetime(qh["START_TIME"])
+            qh["END_TIME"] = pd.to_datetime(qh["END_TIME"])
+            qh["BYTES_WRITTEN"] = qh["BYTES_WRITTEN"].astype(int)
+            qh["BYTES_WRITTEN_TO_RESULT"] = qh["BYTES_WRITTEN_TO_RESULT"].astype(int)
+            qh["BYTES_READ_FROM_RESULT"] = qh["BYTES_READ_FROM_RESULT"].astype(int)
+            qh["BYTES_READ_FROM_RESULT"] = qh["BYTES_READ_FROM_RESULT"].astype(int)
+            qh["ROWS_INSERTED"] = qh["ROWS_INSERTED"].astype(int)
+            qh["ROWS_UPDATED"] = qh["ROWS_UPDATED"].astype(int)
+            qh["ROWS_DELETED"] = qh["ROWS_DELETED"].astype(int)
+            qh["ROWS_UNLOADED"] = qh["ROWS_UNLOADED"].astype(int)
+            qh["BYTES_DELETED"] = qh["BYTES_DELETED"].astype(int)
+            qh["PARTITIONS_SCANNED"] = qh["PARTITIONS_SCANNED"].astype(int)
+            qh["PARTITIONS_TOTAL"] = qh["PARTITIONS_TOTAL"].astype(int)
+            qh["BYTES_SPILLED_TO_LOCAL_STORAGE"] = qh["BYTES_SPILLED_TO_LOCAL_STORAGE"].astype(int)
 
 
-        filtered_qh = qh
+            filtered_qh = qh
+        except:
+            pass
 
         # Add dropdown to change pie charts between count, duration, or bubble chart w/ count & duration
         with settings[3]:
@@ -206,6 +209,26 @@ if __name__ == "__main__":
                     # Text of when query ran and how long
                     st.caption(f"Query started at {query['START_TIME'][0]} and finished at {query['END_TIME'][0]} with a total execution time of {'{:,.0f}'.format(query['TOTAL_ELAPSED_TIME'][0])} ms {simple_time}")
                 except Exception as e:
+                    query = pd.DataFrame({
+                        'QUERY_ID':[query_id],
+                        'WAREHOUSE_NAME':['Unknown'],
+                        'WAREHOUSE_SIZE':['Unknown'],
+                        'WAREHOUSE_TYPE':['Unknown'],
+                        'DATABASE_NAME':['Unknown'],
+                        'QUERY_TEXT':['Unknown'],
+                        'WAREHOUSE_SIZE':['Unknown'],
+                        'COMPILATION_TIME':[0],
+                        'QUEUED_PROVISIONING_TIME':[0],
+                        'QUEUED_REPAIR_TIME':[0],
+                        'QUEUED_OVERLOAD_TIME':[0],
+                        'EXECUTION_TIME':[0],
+                        'SCHEMA_NAME':['Unknown'],
+                        'QUERY_TYPE':['Unknown'],
+                        'USER_NAME':['Unknown'],
+                        'QUERY_TAG':['Unknown'],
+                        'APPLICATION_NAME':['Unknown'],
+                        'CLIENT_APPLICATION_ID':['Unknown']
+                        })
                     st.warning(e)
 
                 # Build 4 columns
@@ -346,6 +369,14 @@ if __name__ == "__main__":
                             LEFT JOIN SNOWFLAKE_SAMPLE_DATA.INFORMATION_SCHEMA.TABLES t
                                 on query_stats.TABLENAME = t.TABLE_CATALOG || '.' || t.TABLE_SCHEMA || '.' || t.TABLE_NAME
                             ORDER BY STEP_ID,OPERATOR_ID""").to_pandas()
+
+                        stats['BYTES_SPILLED_LOCAL'] = stats['BYTES_SPILLED_LOCAL'].fillna(0).astype(int)
+                        stats['BYTES_SPILLED_REMOTE'] = stats['BYTES_SPILLED_REMOTE'].fillna(0).astype(int)
+                        stats["OUTPUT_ROWS"] = stats["OUTPUT_ROWS"].fillna(0).astype(int)
+                        stats["INPUT_ROWS"] = stats["INPUT_ROWS"].fillna(0).astype(int)
+                        stats["PARTITIONS_TOTAL"] = stats["PARTITIONS_TOTAL"].fillna(0).astype(int)
+                        stats["PARTITIONS_SCANNED"] = stats["PARTITIONS_SCANNED"].fillna(0).astype(int)
+
                         try:
                             if stats["EXPLODING_JOIN"].max() == 1:
                                 with st.expander("⚠️ Exploding Join Detected"):
@@ -361,8 +392,6 @@ if __name__ == "__main__":
                                             st.markdown(f"""**Condition:**""")
                                             st.markdown(f"""`{parsed["equality_join_condition"]}`""") 
                                         try:
-                                            row["OUTPUT_ROWS"] = int(row["OUTPUT_ROWS"])
-                                            row["INPUT_ROWS"] = int(row["INPUT_ROWS"])
                                             if row['OUTPUT_ROWS'] > row['INPUT_ROWS']:
                                                 st.markdown(f"""This join turned `{'{:,.0f}'.format(row['INPUT_ROWS'])}` input rows into `{'{:,.0f}'.format(row['OUTPUT_ROWS'])}` output rows (`{'{:,.1f}'.format(row['OUTPUT_ROWS']/row['INPUT_ROWS'])}`x multiple)""")
                                         except Exception as e:
@@ -393,42 +422,45 @@ if __name__ == "__main__":
                         try:
                             if stats["QUERIES_TOO_LARGE_MEMORY"].max() == 1:
                                 with st.expander("⚠️ Queries Too Large to Fit in Memory"):
-                                    st.caption(f"""The [compute resources](https://docs.snowflake.com/en/user-guide/warehouses-considerations) used in this query were insufficient to hold intermediate results, and resulted in {"local" if stats["BYTES_SPILLED_REMOTE"].fillna(0).sum() == 0 else "local and remote"} spilling, which negatively affected query performance.  Consider increasing the [virtual warehouse size](https://docs.snowflake.com/en/user-guide/warehouses-overview#impact-on-query-processing), or processing the data in smaller batches.""")
+                                    st.caption(f"""The [compute resources](https://docs.snowflake.com/en/user-guide/warehouses-considerations) used in this query were insufficient to hold intermediate results, and resulted in {"local" if stats["BYTES_SPILLED_REMOTE"].sum() == 0 else "local and remote"} spilling, which negatively affected query performance.  Consider increasing the [virtual warehouse size](https://docs.snowflake.com/en/user-guide/warehouses-overview#impact-on-query-processing), or processing the data in smaller batches.""")
                                     st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-large-to-fit-in-memory""")
 
                                     for index, row in stats.sort_values(by=['OPERATOR_ID']).iterrows():
-                                        if ((row["BYTES_SPILLED_LOCAL"] != None) & (row["BYTES_SPILLED_REMOTE"] != None)):
-                                            st.caption(f"""* Step {row["OPERATOR_ID"]}: {"{:,.0f}".format(int(row["BYTES_SPILLED_LOCAL"]))} bytes spilled onto local storage and {"{:,.0f}".format(int(row["BYTES_SPILLED_LOCAL"]))} bytes spilled onto remote storage""")
-                                        elif ((row["BYTES_SPILLED_LOCAL"] != None) & (row["BYTES_SPILLED_REMOTE"] == None)):
-                                            st.caption(f"""* Step {row["OPERATOR_ID"]}: {"{:,.0f}".format(int(row["BYTES_SPILLED_LOCAL"]))} bytes spilled onto local storage """)
-                                        elif ((row["BYTES_SPILLED_LOCAL"] == None) & (row["BYTES_SPILLED_REMOTE"] != None)):
-                                            st.caption(f"""* Step {row["OPERATOR_ID"]}: {"{:,.0f}".format(int(row["BYTES_SPILLED_REMOTE"]))} bytes spilled onto remote storage """)
+                                        if ((row["BYTES_SPILLED_LOCAL"] != 0) & (row["BYTES_SPILLED_REMOTE"] != 0)):
+                                            st.caption(f"""* Step {row["OPERATOR_ID"]}: `{"{:,.0f}".format(int(row["BYTES_SPILLED_LOCAL"]))}` bytes spilled onto local storage and `{"{:,.0f}".format(int(row["BYTES_SPILLED_LOCAL"]))}` bytes spilled onto remote storage""")
+                                        elif ((row["BYTES_SPILLED_LOCAL"] != 0) & (row["BYTES_SPILLED_REMOTE"] == 0)):
+                                            st.caption(f"""* Step {row["OPERATOR_ID"]}: `{"{:,.0f}".format(int(row["BYTES_SPILLED_LOCAL"]))}` bytes spilled onto local storage """)
+                                        elif ((row["BYTES_SPILLED_LOCAL"] == 0) & (row["BYTES_SPILLED_REMOTE"] != 0)):
+                                            st.caption(f"""* Step {row["OPERATOR_ID"]}: `{"{:,.0f}".format(int(row["BYTES_SPILLED_REMOTE"]))}` bytes spilled onto remote storage """)
 
-                                    wh_sizes = ['X-Small','Small','Medium','Large','X-Large','2X-Large','3X-Large','4X-Large','5X-Large','6X-Large']
-                                    index = 0
-                                    for wh_size in wh_sizes:
-                                        if query['WAREHOUSE_SIZE'][0] == wh_size:
-                                            size_up = index + 1
-                                        index = index + 1
+                                    try:
+                                        wh_sizes = ['X-Small','Small','Medium','Large','X-Large','2X-Large','3X-Large','4X-Large','5X-Large','6X-Large']
+                                        index = 0
+                                        for wh_size in wh_sizes:
+                                            if query['WAREHOUSE_SIZE'][0] == wh_size:
+                                                size_up = index + 1
+                                            index = index + 1
 
-                                    current_wh_size = session.sql(f"SHOW WAREHOUSES LIKE '{query['WAREHOUSE_NAME'][0]}'").collect()[0]['size']
+                                        current_wh_size = session.sql(f"SHOW WAREHOUSES LIKE '{query['WAREHOUSE_NAME'][0]}'").collect()[0]['size']
 
-                                    index = 0
-                                    for wh_size in wh_sizes:
-                                        if current_wh_size == wh_size:
-                                            current_wh_num = index
-                                        index = index + 1
-                                            
-                                    new_size = ['XSMALL','SMALL','MEDIUM','LARGE','XLARGE','XXLARGE','XXXLARGE','X4LARGE','X5LARGE','X6LARGE']
+                                        index = 0
+                                        for wh_size in wh_sizes:
+                                            if current_wh_size == wh_size:
+                                                current_wh_num = index
+                                            index = index + 1
+                                                
+                                        new_size = ['XSMALL','SMALL','MEDIUM','LARGE','XLARGE','XXLARGE','XXXLARGE','X4LARGE','X5LARGE','X6LARGE']
 
-                                    if current_wh_num < size_up:       
-                                        st.markdown(f"""This query was executed on WH `{query['WAREHOUSE_NAME'][0]}`, sized “`{query['WAREHOUSE_SIZE'][0]}` at the time of execution”.  Would you like to increase the WH size to `{new_size[size_up]}`, to help decrease future spilling?""")
-                                        st.markdown(f"""`ALTER WAREHOUSE "{query['WAREHOUSE_NAME'][0]}" SET WAREHOUSE_SIZE={new_size[size_up]};`""")
-                
-                                        st.write("Or use the following button to automatically increase your warehouse size")
-                                        st.button(f"Change {query['WAREHOUSE_NAME'][0]} to {new_size[size_up]}", on_click=resize_wh, args=(query['WAREHOUSE_NAME'][0], new_size[size_up]), type='primary')
-                                    else:
-                                        st.write("Your current warehouse size is already greater than the size when this query was executed. Try running the query again to see if the warehouse is appropriately sized.")
+                                        if current_wh_num < size_up:       
+                                            st.markdown(f"""This query was executed on WH `{query['WAREHOUSE_NAME'][0]}`, sized “`{query['WAREHOUSE_SIZE'][0]}` at the time of execution”.  Would you like to increase the WH size to `{new_size[size_up]}`, to help decrease future spilling?""")
+                                            st.markdown(f"""`ALTER WAREHOUSE "{query['WAREHOUSE_NAME'][0]}" SET WAREHOUSE_SIZE={new_size[size_up]};`""")
+                    
+                                            st.write("Or use the following button to automatically increase your warehouse size")
+                                            st.button(f"Change {query['WAREHOUSE_NAME'][0]} to {new_size[size_up]}", on_click=resize_wh, args=(query['WAREHOUSE_NAME'][0], new_size[size_up]), type='primary')
+                                        else:
+                                            st.write("Your current warehouse size is already greater than the size when this query was executed. Try running the query again to see if the warehouse is appropriately sized.")
+                                    except Exception as e:
+                                        pass
                                     
                             else:
                                 with st.expander("✅ Queries Fit in Memory"):
@@ -449,8 +481,6 @@ if __name__ == "__main__":
                         
                                 try:
                                     problem = stats[stats["TABLENAME"].notnull()]
-                                    problem["PARTITIONS_TOTAL"] = problem["PARTITIONS_TOTAL"].astype(int)
-                                    problem["PARTITIONS_SCANNED"] = problem["PARTITIONS_SCANNED"].astype(int)
                                     problem["sort"] = 5
                                     problem["sort"] = np.where(problem["PARTITIONS_TOTAL"].le(1000), 1, problem["sort"])
                                     problem["sort"] = np.where(problem["PARTITIONS_SCANNED"].le(problem["PARTITIONS_TOTAL"]*.5), 1, problem["sort"])
@@ -503,6 +533,10 @@ if __name__ == "__main__":
                         ])
                         st.dataframe(transpose, use_container_width=True)
 
+                    except Exception as e:
+                        st.warning(e)
+
+                    try:
                         st.write(stats)
                     except Exception as e:
                         st.warning(e)
