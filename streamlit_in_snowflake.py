@@ -27,7 +27,7 @@ def resize_wh(warehouse_name, warehouse_size):
 if __name__ == "__main__":
     try:
 
-        st.title("Streamlit Query Statistics")
+        st.title("Streamlit: Snowflake Query Profiling")
 
 
         # Get the current credentials
@@ -393,7 +393,7 @@ if __name__ == "__main__":
                         try:
                             if stats["QUERIES_TOO_LARGE_MEMORY"].max() == 1:
                                 with st.expander("⚠️ Queries Too Large to Fit in Memory"):
-                                    st.caption(f"""The [compute resources](https://docs.snowflake.com/en/user-guide/warehouses-considerations) used in this query were insufficient to hold intermediate results, and resulted in (local/local and remote) spilling, which negatively affected query performance.  Consider increasing the [virtual warehouse size](https://docs.snowflake.com/en/user-guide/warehouses-overview#impact-on-query-processing), or processing the data in smaller batches.""")
+                                    st.caption(f"""The [compute resources](https://docs.snowflake.com/en/user-guide/warehouses-considerations) used in this query were insufficient to hold intermediate results, and resulted in {"local" if stats["BYTES_SPILLED_REMOTE"].fillna(0).sum() == 0 else "local and remote"} spilling, which negatively affected query performance.  Consider increasing the [virtual warehouse size](https://docs.snowflake.com/en/user-guide/warehouses-overview#impact-on-query-processing), or processing the data in smaller batches.""")
                                     st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-large-to-fit-in-memory""")
 
                                     for index, row in stats.sort_values(by=['OPERATOR_ID']).iterrows():
@@ -432,7 +432,7 @@ if __name__ == "__main__":
                                     
                             else:
                                 with st.expander("✅ Queries Fit in Memory"):
-                                    st.caption(f"""The [compute resources](https://docs.snowflake.com/en/user-guide/warehouses-considerations) used in this query were insufficient to hold intermediate results, and resulted in (local/local and remote) spilling, which negatively affected query performance.  Consider increasing the [virtual warehouse size](https://docs.snowflake.com/en/user-guide/warehouses-overview#impact-on-query-processing), or processing the data in smaller batches.""")
+                                    st.caption(f"""The [compute resources](https://docs.snowflake.com/en/user-guide/warehouses-considerations) used in this query were sufficient to hold intermediate results, and did not result in local or remote spilling, which would have negatively affected query performance.  If the queries could not fit in memory, consider increasing the [virtual warehouse size](https://docs.snowflake.com/en/user-guide/warehouses-overview#impact-on-query-processing), or processing the data in smaller batches.""")
                                     st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#queries-too-large-to-fit-in-memory""")
                         except Exception as e:
                             st.warning(e)
@@ -444,7 +444,7 @@ if __name__ == "__main__":
                             else:
                                 _heading = "✅ Efficient Pruning"
                             with st.expander(_heading):
-                                st.caption(f"""This query executed large table scans against very large tables, scanning a very high percentage of the total number of partitions (Ideally constructed queries only read necessary parts of a table).  Consider adding additional filters, re-sorting the table (ordered by columns commonly used in join and filter operations), adding a [table cluster key](https://docs.snowflake.com/en/user-guide/tables-clustering-keys), or confirming that existing cluster keys, if present (dynamically populate this?) were effective for this query.  Future data loading and ingestion operations on these tables should be sorted the same way.""")
+                                st.caption(f"""This query executed large table scans against very large tables, scanning a very high percentage of the total number of partitions (Ideally constructed queries only read necessary parts of a table).  Consider adding additional filters, re-sorting the table (ordered by columns commonly used in join and filter operations), adding a [table cluster key](https://docs.snowflake.com/en/user-guide/tables-clustering-keys), or confirming that existing cluster keys, were effective for this query.  Future data loading and ingestion operations on these tables should be sorted the same way.""")
                                 st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#inefficient-pruning""")
                         
                                 try:
