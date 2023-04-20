@@ -167,7 +167,7 @@ if __name__ == "__main__":
         with container:
             if(query_id == ""):
                 # If no Query ID has been provided, show table of most recent 50 queries
-                st.write(filtered_qh)
+                st.write(filtered_qh.head(400))
             else:
                 pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
                 if not re.match(pattern, query_id):
