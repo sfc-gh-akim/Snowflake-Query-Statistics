@@ -450,12 +450,14 @@ if __name__ == "__main__":
                         try:
                             if stats["UNION_WITHOUT_ALL"].max() == 1:
                                 _heading = "⚠️ UNION Without ALL Detected"
+                                with st.expander(_heading):
+                                    st.caption(f"""This query performs a UNION without ALL, which not only concatenates inputs, but also performs duplicate elimination which may not be necessary and may consume additional resources.""")
+                                    st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#union-without-all""")                                 
                             else:
-                                _heading = "✅ No UNION Without ALL Detected"                        
-        
-                            with st.expander(_heading):
-                                st.caption(f"""This query performs a UNION without ALL, which not only concatenates inputs, but also performs duplicate elimination which may not be necessary and may consume additional resources.""")
-                                st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#union-without-all""")                                 
+                                _heading = "✅ No UNION Without ALL Detected"
+                                with st.expander(_heading):
+                                    st.caption(f"""The difference between a UNION and UNION ALL is that UNION ALL simply concatenates inputs, while UNION does the same, but also performs duplicate elimination which may consume additional resources""")
+                                    st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity.html#union-without-all""")                                               
                         
                         except Exception as e:
                             st.warning(e)
