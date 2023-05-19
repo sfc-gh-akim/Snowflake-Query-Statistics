@@ -399,7 +399,7 @@ if __name__ == "__main__":
 
                             else:
                                 with st.expander("✅ No Exploding Joins Detected"):
-                                    st.caption(f"""One of the Join operators produced significantly more rows than it consumed (output rows > input rows), often due to the absence of a join condition which often results in a Cartesian product and consumes additional resources.""")
+                                    st.caption(f"""One of the common mistakes SQL users make is joining tables without providing a join condition (resulting in a "Cartesian product"), or providing a condition where records from one table match multiple records from another table. For such queries, the Join operator produces significantly (often by orders of magnitude) more tuples than it consumes.""")
                                     st.caption(f"""https://docs.snowflake.com/en/user-guide/ui-snowsight-activity#exploding-joins""")
                         except Exception as e:
                             st.warning(e)
