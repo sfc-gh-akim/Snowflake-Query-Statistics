@@ -46,7 +46,7 @@ rich==13.3.2
 semver==2.13.0
 six==1.16.0
 smmap==5.0.0
-snowflake-connector-python==3.0.1
+snowflake-connector-python==3.0.2
 snowflake-snowpark-python==1.2.0
 st-connection @ git+https://github.com/sfc-gh-brianhess/st_connection.git@19caca5a7899c612ae034815045e0999e68e6820
 streamlit==1.20.0
